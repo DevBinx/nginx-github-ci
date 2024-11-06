@@ -6,11 +6,17 @@ on:
       - "conf.d/**"
 
   workflow_dispatch:
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3.3.0
+
+      - name: Create SSH private key file
+        run: |
+          echo "${{ secrets.REMOTE_SSH_KEY }}" > priv.key
+          chmod 600 priv.key
 
       - name: execute remote ssh
         uses: appleboy/ssh-action@v1.1.0
@@ -20,4 +26,25 @@ jobs:
           key: ${{ secrets.REMOTE_SSH_KEY }}
           port: ${{ secrets.REMOTE_SSH_PORT }}
           script: |
-            whoami
+            # 복사할 conf 파일이 있는지 확인
+            if ls conf.d/*.conf 1> /dev/null 2>&1; then
+              echo "Copying .conf files to the server..."
+              scp -i priv.key -P ${{ secrets.REMOTE_SSH_PORT }} -o StrictHostKeyChecking=no conf.d/*.conf ${{ secrets.REMOTE_SSH_USERNAME }}@${{ secrets.REMOTE_SSH_HOST }}:/etc/nginx/conf.d/
+            else
+              echo "No .conf files to copy."
+            fi
+
+            # NGINX 문법 검사 및 서비스 재시작
+            echo "Checking NGINX configuration..."
+            ssh -i priv.key -p ${{ secrets.REMOTE_SSH_PORT }} -o StrictHostKeyChecking=no ${{ secrets.REMOTE_SSH_USERNAME }}@${{ secrets.REMOTE_SSH_HOST }} 'nginx -t'
+
+            if [ $? -eq 0 ]; then
+              echo "NGINX configuration is valid. Reloading NGINX..."
+              ssh -i priv.key -p ${{ secrets.REMOTE_SSH_PORT }} -o StrictHostKeyChecking=no ${{ secrets.REMOTE_SSH_USERNAME }}@${{ secrets.REMOTE_SSH_HOST }} 'nginx -s reload'
+            else
+              echo "NGINX configuration test failed. Not reloading NGINX."
+              exit 1
+            fi
+
+      - name: Clean up private key file
+        run: rm priv.key
