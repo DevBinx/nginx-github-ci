@@ -16,20 +16,23 @@ jobs:
     - name: Check out the repository
       uses: actions/checkout@v2
 
-    - name: Set up SSH
-      uses: webfactory/ssh-agent@v0.5.3
-      with:
-        ssh-private-key: ${{ secrets.REMOTE_SSH_KEY }}
+    - name: Create SSH private key file
+      run: |
+        echo "${{ secrets.REMOTE_SSH_KEY }}" > priv.key
+        chmod 600 priv.key
 
     - name: Copy .conf files to NGINX server
       run: |
-        scp -P ${{ secrets.REMOTE_SSH_PORT }} conf.d/*.conf ${{ secrets.REMOTE_SSH_USERNAME }}@${{ secrets.REMOTE_SSH_HOST }}:/etc/nginx/conf.d/
+        scp -i priv.key -P ${{ secrets.REMOTE_SSH_PORT }} -o StrictHostKeyChecking=no conf.d/*.conf ${{ secrets.REMOTE_SSH_USERNAME }}@${{ secrets.REMOTE_SSH_HOST }}:/etc/nginx/conf.d/
 
     - name: Test NGINX configuration
       run: |
-        ssh -p ${{ secrets.REMOTE_SSH_PORT }} ${{ secrets.REMOTE_SSH_USERNAME }}@${{ secrets.NGINX_SERVER_HOST }} 'nginx -t'
+        ssh -i priv.key -p ${{ secrets.REMOTE_SSH_PORT }} -o StrictHostKeyChecking=no ${{ secrets.REMOTE_SSH_USERNAME }}@${{ secrets.REMOTE_SSH_HOST }} 'nginx -t'
 
     - name: Reload NGINX
       if: success()
       run: |
-        ssh -p ${{ secrets.REMOTE_SSH_PORT }} ${{ secrets.REMOTE_SSH_USERNAME }}@${{ secrets.NGINX_SERVER_HOST }} 'nginx -s reload'
+        ssh -i priv.key -p ${{ secrets.REMOTE_SSH_PORT }} -o StrictHostKeyChecking=no ${{ secrets.REMOTE_SSH_USERNAME }}@${{ secrets.REMOTE_SSH_HOST }} 'nginx -s reload'
+
+    - name: Clean up private key file
+      run: rm priv.key
