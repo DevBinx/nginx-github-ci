@@ -23,16 +23,16 @@ jobs:
 
     - name: Copy .conf files to NGINX server
       run: |
-        scp -i priv.key -P ${{ secrets.REMOTE_SSH_PORT }} conf.d/*.conf ${{ secrets.REMOTE_SSH_USERNAME }}@${{ secrets.REMOTE_SSH_HOST }}:/etc/nginx/conf.d/
+        scp -i priv.key -p 20548 conf.d/*.conf ${{ secrets.REMOTE_SSH_USERNAME }}@${{ secrets.REMOTE_SSH_HOST }}:/etc/nginx/conf.d/
 
     - name: Test NGINX configuration
       run: |
-        ssh -i priv.key -p ${{ secrets.REMOTE_SSH_PORT }} ${{ secrets.REMOTE_SSH_USERNAME }}@${{ secrets.REMOTE_SSH_HOST }} 'nginx -t'
+        ssh -i priv.key -p 20548 ${{ secrets.REMOTE_SSH_USERNAME }}@${{ secrets.REMOTE_SSH_HOST }} 'nginx -t'
 
     - name: Reload NGINX
       if: success()
       run: |
-        ssh -i priv.key -p ${{ secrets.REMOTE_SSH_PORT }} ${{ secrets.REMOTE_SSH_USERNAME }}@${{ secrets.REMOTE_SSH_HOST }} 'nginx -s reload'
+        ssh -i priv.key -p 20548 ${{ secrets.REMOTE_SSH_USERNAME }}@${{ secrets.REMOTE_SSH_HOST }} 'nginx -s reload'
 
     - name: Clean up private key file
       run: rm priv.key
